@@ -157,13 +157,15 @@ chip8.prototype.cycle = function(){
 			 
 				case 0x00EE: // 0x00EE: Returns from subroutine 
 					console.log("Returns from subroutine");
-					console.log("this.sp;1: " + this.sp);						 
-					--this.sp;
-					console.log("this.sp;2: " + this.sp);	
+						
 					console.log("this.pc: " + this.pc);
 					console.log("this.stack[this.sp]: " + this.stack[this.sp]);
 					this.pc = this.stack[this.sp];
 					console.log("this.pc: " + this.pc);
+					
+					console.log("this.sp;1: " + this.sp);						 
+					--this.sp;
+					console.log("this.sp;2: " + this.sp);
 					this.pc += 2;
 				break;
 		 
@@ -187,14 +189,16 @@ chip8.prototype.cycle = function(){
 
 		case 0x2000:
 			console.log("Calls subroutine at: " + (this.opcode & 0x0FFF));	
-			console.log("full code: " + this.opcode.toString(16));	
+			console.log("full code: " + this.opcode.toString(16));
+			
+			console.log("this.sp;1: " + this.sp);
+			this.sp++;
+			console.log("this.sp;2: " + this.sp);
 			
 			console.log("this.stack[this.sp]: " + this.stack[this.sp]);
 			this.stack[this.sp] = this.pc;
 			console.log("this.stack[this.sp]2: " + this.stack[this.sp]);
-			console.log("this.sp;1: " + this.sp);
-			this.sp++;
-			console.log("this.sp;2: " + this.sp);
+			
 			console.log("this.pc1: " + this.pc);
 			this.pc = this.opcode & 0x0FFF;
 			console.log("this.pc2: " + this.pc);
@@ -325,7 +329,7 @@ chip8.prototype.cycle = function(){
 				//8XYE
 				//Shifts VX left by one. VF is set to the value of the most significant bit of VX before the shift.
 				case 0x000E:
-					this.V[0xF] = ( this.V[x] & 0x80) >> 7; // CHANGED
+					this.V[0xF] = ( this.V[(x] & 0x80) >> 7; // CHANGED
 					this.V[x] <<= 1; // CHANGED
 					this.pc += 2;
 				break;
