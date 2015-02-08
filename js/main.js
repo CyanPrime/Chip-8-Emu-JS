@@ -5,7 +5,7 @@ if (window.File && window.FileReader && window.FileList && window.Blob) {
   alert('The File APIs are not fully supported in this browser.');
 }
 
-var debug = false;
+var debug = true;
 var errorOn0 = false;
 var game = new Array();
 var error = false;
@@ -84,6 +84,10 @@ chip8.prototype.reset = function(){
 	
 	this.V = new Array(16);
 	
+	for(var i = 0; i < this.V.length; i++){
+		this.V[i] = 0;
+	}
+	
 	//0x000 to 0xFFF
 	this.I = 0; // two bytes long(?)
 	this.pc = 0x200; // two bytes long(?)
@@ -111,6 +115,8 @@ chip8.prototype.reset = function(){
     //0x00E0 – Clears the screen
     //0xDXYN – Draws a sprite on the screen
 	this.draw = false;
+	this.waitForKey = false;
+	this.keyPress = false;
 }
 
 chip8.prototype.loadGame = function(myGame){
@@ -123,6 +129,10 @@ chip8.prototype.loadGame = function(myGame){
 chip8.prototype.cycle = function(){
 	// Fetch Opcode
 	this.opcode = this.memory[this.pc] << 8 | this.memory[this.pc + 1];
+	var x = (this.opcode & 0x0F00) >> 8;
+	var y = (this.opcode & 0x00F0) >> 4;
+	
+	//console.log("this.pc: " + this.pc);
 	
 	// Decode Opcode
 	switch(this.opcode & 0xF000){
@@ -146,9 +156,14 @@ chip8.prototype.cycle = function(){
 				break;
 			 
 				case 0x00EE: // 0x00EE: Returns from subroutine 
-					 console.log("Returns from subroutine");			  
-					--this.sp
+					console.log("Returns from subroutine");
+					console.log("this.sp;1: " + this.sp);						 
+					--this.sp;
+					console.log("this.sp;2: " + this.sp);	
+					console.log("this.pc: " + this.pc);
+					console.log("this.stack[this.sp]: " + this.stack[this.sp]);
 					this.pc = this.stack[this.sp];
+					console.log("this.pc: " + this.pc);
 					this.pc += 2;
 				break;
 		 
@@ -159,42 +174,48 @@ chip8.prototype.cycle = function(){
 					}
 				break;				
 			}
-		
+		break;
 		 // JP addr
 		// 1nnnn
 		// Jump to location nnn
 		case 0x1000:
-			if(debug){
-				if((this.opcode & 0x0FFF) > 0) console.log("jump to addr: " + (this.opcode & 0x0FFF));	
-			}
+		//	if(debug){
+				 console.log("jump to addr: " + (this.opcode & 0x0FFF));	
+		//	}
 			this.pc = this.opcode & 0x0FFF;
 		break;
 
 		case 0x2000:
-			
 			console.log("Calls subroutine at: " + (this.opcode & 0x0FFF));	
+			console.log("full code: " + this.opcode.toString(16));	
+			
+			console.log("this.stack[this.sp]: " + this.stack[this.sp]);
 			this.stack[this.sp] = this.pc;
+			console.log("this.stack[this.sp]2: " + this.stack[this.sp]);
+			console.log("this.sp;1: " + this.sp);
 			this.sp++;
+			console.log("this.sp;2: " + this.sp);
+			console.log("this.pc1: " + this.pc);
 			this.pc = this.opcode & 0x0FFF;
-			this.pc += 2;
+			console.log("this.pc2: " + this.pc);
 		break;
 		
 		case 0x3000: // 0x3XNN: Skips the next instruction if VX equals NN
-			if(this.V[(this.opcode & 0x0F00) >> 8] == (this.opcode & 0x00FF))
+			if(this.V[x] == (this.opcode & 0x00FF))
 				this.pc += 4;
 			else
 				this.pc += 2;
 		break;
 		
 		case 0x4000: // 0x4XNN: Skips the next instruction if VX doesn't equals NN
-			if(this.V[(this.opcode & 0x0F00) >> 8] != (this.opcode & 0x00FF))
+			if(this.V[x] != (this.opcode & 0x00FF))
 				this.pc += 4;
 			else
 				this.pc += 2;
 		break;
 		
 		case 0x5000: // 0x4XNN: Skips the next instruction if VX equals NN
-			if(this.V[(this.opcode & 0x0F00) >> 8] == this.V[(this.opcode & 0x00F0) >> 4])
+			if(this.V[x] == this.V[y])
 				this.pc += 4;
 			else
 				this.pc += 2;
@@ -205,20 +226,23 @@ chip8.prototype.cycle = function(){
 		case 0x6000:
 			if(debug) console.log("call opcode: 6XNN");
 			if(debug) console.log("full opcode: " + this.opcode.toString(16));
-			this.V[(this.opcode & 0x0F00) >> 8] = (this.opcode & 0xFF);
+			if(debug) console.log("this.V[x] =" + this.V[x] );
+			if(debug) console.log("(this.opcode & 0x00FF) =" + (this.opcode & 0x00FF) );
+			if(debug) console.log("(this.opcode & 0x00FF) 16 =" + (this.opcode & 0x00FF).toString(16));
+			this.V[x] = (this.opcode & 0x00FF);
 			this.pc += 2;
 		break;
 		
 		//7XNN
 		//Adds NN to VX.
 		case 0x7000:
-			var val = (this.opcode & 0xFF) + this.V[(this.opcode & 0x0F00) >> 8];
+			var val = (this.opcode & 0x00FF) + this.V[x];
 			
 			if (val > 255) {
 				val -= 256;
 			}
 			
-			this.V[(this.opcode & 0x0F00) >> 8] = val;
+			this.V[x] = val;
 			this.pc += 2;
 		break;
 		
@@ -229,80 +253,80 @@ chip8.prototype.cycle = function(){
 				//8XY0
 				//Sets VX to the value of VY.
 				case 0x0000:
-					this.V[(this.opcode & 0x0F00) >> 8] = this.V[(this.opcode & 0x00F0) >> 4];
+					this.V[x] = this.V[y];
 					this.pc += 2;
 				break;
 				
 				//8XY1
 				//Sets VX to VX OR VY.
 				case 0x0001:
-					this.V[(this.opcode & 0x0F00) >> 8] |= this.V[(this.opcode & 0x00F0) >> 4];
+					this.V[x] |= this.V[y];
 					this.pc += 2;
 				break;
 				
 				//8XY2
 				//Sets VX to VX AND VY.
 				case 0x0002:
-					this.V[(this.opcode & 0x0F00) >> 8] &= this.V[(this.opcode & 0x00F0) >> 4];
+					this.V[x] &= this.V[y];
 					this.pc += 2;
 				break;
 				
 				//8XY3
 				//Sets VX to VX XOR VY.
 				case 0x0003:
-					this.V[(this.opcode & 0x0F00) >> 8] ^= this.V[(this.opcode & 0x00F0) >> 4];
+					this.V[x] ^= this.V[y];
 					this.pc += 2;
 				break;
 				
 				//8XY4
 				//Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't.
 				case 0x0004:
-					if(this.V[(this.opcode & 0x0F00) >> 8] > (0xFF - this.V[(this.opcode & 0x00F0) >> 4]))
+					if(this.V[x] > (0xFF - this.V[y]))
 						this.V[0xF] = 1;
 					else
 						this.V[0xF] = 0;
 					
-					this.V[(this.opcode & 0x0F00) >> 8] += this.V[(this.opcode & 0x00F0) >> 4];
+					this.V[x] += this.V[y];
 					this.pc += 2;
 				break;
 				
 				//8XY5
 				//VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there isn't.
 				case 0x0005:
-					if(this.V[(this.opcode & 0x00F0) >> 4] > this.V[(this.opcode & 0x0F00) >> 8])
+					if(this.V[y] > this.V[x])
 						this.V[0xF] = 0; // there's a borrow.
 					else
 						this.V[0xF] = 1;
 					
-					this.V[(this.opcode & 0x0F00) >> 8] -= this.V[(this.opcode & 0x00F0) >> 4];
+					this.V[x] -= this.V[y];
 					this.pc += 2;
 				break;
 				
 				//8XY6
 				//Shifts VX right by one. VF is set to the value of the least significant bit of VX before the shift.
 				case 0x0006:
-					this.V[0xF] = this.V[(this.opcode & 0x0F00) >> 8] & 0x1;
-					this.V[(this.opcode & 0x0F00) >> 8] >>= 1;
+					this.V[0xF] = this.V[x] & 0x1;
+					this.V[x] >>= 1;
 					this.pc += 2;
 				break;
 				
 				//8XY7
 				// 	Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there isn't.
 				case 0x0007:
-					if(this.V[(this.opcode & 0x00F0) >> 4] > this.V[(this.opcode & 0x0F00) >> 8])
+					if(this.V[y] > this.V[x])
 						this.V[0xF] = 0; // there's a borrow.
 					else
 						this.V[0xF] = 1;
 					
-					this.V[(this.opcode & 0x0F00) >> 8] = this.V[(this.opcode & 0x00F0) >> 4] - this.V[(this.opcode & 0x0F00) >> 8];
+					this.V[x] = this.V[y] - this.V[x];
 					this.pc += 2;
 				break;
 				
 				//8XYE
 				//Shifts VX left by one. VF is set to the value of the most significant bit of VX before the shift.
 				case 0x000E:
-					this.V[0xF] = ( this.V[(this.opcode & 0x0F00) >> 8] & 0x80) >> 7; // CHANGED
-					this.V[(this.opcode & 0x0F00) >> 8] <<= 1; // CHANGED
+					this.V[0xF] = ( this.V[x] & 0x80) >> 7; // CHANGED
+					this.V[x] <<= 1; // CHANGED
 					this.pc += 2;
 				break;
 				
@@ -313,7 +337,7 @@ chip8.prototype.cycle = function(){
 		break;
 		
 		case 0x9000: // 9XY0:  Skips the next instruction if VX doesn't equal VY.
-			if(this.V[(this.opcode & 0x0F00) >> 8] != this.V[(this.opcode & 0x00F0) >> 4])
+			if(this.V[x] != this.V[y])
 				this.pc += 4;
 			else
 				this.pc += 2;
@@ -321,7 +345,7 @@ chip8.prototype.cycle = function(){
 		
 		/*case 0x4000:
 			if(debug) console.log("call opcode 0x0004");	
-			if(this.V[(this.opcode & 0x00F0) >> 4] > (0xFF - this.V[(this.opcode & 0x0F00) >> 8])){
+			if(this.V[y] > (0xFF - this.V[x])){
 				this.V[0xF] = 1; //carry
 			}
 			
@@ -329,15 +353,15 @@ chip8.prototype.cycle = function(){
 				this.V[0xF] = 0; // no carry
 			}
 			
-			this.V[(this.opcode & 0x0F00) >> 8] += this.V[(this.opcode & 0x00F0) >> 4];
+			this.V[x] += this.V[y];
 			this.pc += 2;
 		break;
 		
 		case 0x0033:
 			if(debug) console.log("call opcode 0x0033");	
-			this.memory[this.I]		= this.V[(this.opcode & 0x0F00) >> 8] / 100;
-			this.memory[this.I + 1]	= (this.V[(this.opcode & 0x0F00) >> 8] / 10) % 10;
-			this.memory[this.I + 2]	= (this.V[(this.opcode & 0x0F00) >> 8] / 100) % 10;
+			this.memory[this.I]		= this.V[x] / 100;
+			this.memory[this.I + 1]	= (this.V[x] / 10) % 10;
+			this.memory[this.I + 2]	= (this.V[x] / 100) % 10;
 			++this.pc;
 		break;
 		*/
@@ -355,14 +379,14 @@ chip8.prototype.cycle = function(){
 		break;
 		
 		case 0xC000: // CXNN: Sets VX to a random number and NN
-			this.V[(this.opcode & 0x0F00) >> 8] = (Math.random() % 0xFF) & (this.opcode & 0x00FF);
+			this.V[x] = (Math.random() % 0xFF) & (this.opcode & 0x00FF);
 		break;
 		
 		case 0xD000:
 			if(debug) console.log("call opcode 0xDXYN")
 			if(debug) console.log("full opcode: " + this.opcode.toString(16));	
-			var x = this.V[(this.opcode & 0x0F00) >> 8];
-			var y = this.V[(this.opcode & 0x00F0) >> 4];
+			var dx = this.V[x];
+			var dy = this.V[y];
 			var height = (this.opcode & 0x000F);
 			var pixel;
 			
@@ -371,11 +395,11 @@ chip8.prototype.cycle = function(){
 				pixel = this.memory[this.I + yLine];
 				for(var xLine = 0; xLine < 8; xLine++){
 					if((pixel & (0x80 >> xLine)) > 0){
-						if(this.gfx[(x + xLine + ((y +yLine) *64))] == 1){
+						if(this.gfx[dx + xLine + ((dy +yLine) *64)] == 1){
 							this.V[0xF] = 1;
 						}
 						
-						this.gfx[x + xLine + ((y + yLine) * 64)] ^= 1;
+						this.gfx[dx + xLine + ((dy + yLine) * 64)] ^= 1;
 					}
 				}
 			}
@@ -389,7 +413,7 @@ chip8.prototype.cycle = function(){
 				//EX9E
 				//Skips the next instruction if the key stored in VX is pressed.
 				case 0x009E:
-					if(this.key[this.V[(this.opcode & 0x0F00) >> 8]] != 0)
+					if(this.key[this.V[x]] != 0)
 						this.pc += 4;
 					else
 						this.pc += 2;
@@ -398,8 +422,8 @@ chip8.prototype.cycle = function(){
 				//EXA1
 				//Skips the next instruction if the key stored in VX isn't pressed.
 				case 0x00A1:
-					console.log("key = " + this.key[this.V[(this.opcode & 0x0F00) >> 8]]);
-					if(this.key[this.V[(this.opcode & 0x0F00) >> 8]] == 0){
+					console.log("key = " + this.key[this.V[x]]);
+					if(this.key[this.V[x]] == 0){
 						console.log("key in VX not pressed. Skip");
 						this.pc += 4;
 					}
@@ -421,77 +445,76 @@ chip8.prototype.cycle = function(){
 				//FX07
 				//Sets VX to the value of the delay timer.
 				case 0x0007:
-					this.V[(this.opcode & 0x0F00) >> 8] = this.delay_timer;
+					this.V[x] = this.delay_timer;
 					this.pc += 2;
 				break;
 				
 				case 0x000A: // FX0A: A key press is awaited, and then stored in VX		
 				{
-					var keyPress = false;
-
-					for(var i = 0; i < 16; ++i)
-					{
-						if(this.key[i] != 0)
+					if(!this.waitForKey){
+						this.keyPress = false;
+						this.waitForKey = true;
+					}
+					
+					else if(keyPress){
+						this.waitForKey = false;
+						for(var i = 0; i < 16; ++i)
 						{
-							this.V[(this.opcode & 0x0F00) >> 8] = i;
-							keyPress = true;
+							if(this.key[i] != 0)
+								this.V[x] = this.key[i];
 						}
 					}
-
-					// If we didn't received a keypress, skip this cycle and try again.
-					if(!keyPress)						
-						return;
-
+					
 					this.pc += 2;					
 				}
 				break;
 				
 				case 0x0015:
-					this.delay_timer = this.V[(this.opcode & 0x0F00) >> 8];
+					this.delay_timer = this.V[x];
 					this.pc += 2;		
 				break;
 				
 				case 0x0018:
-					this.sound_timer = this.V[(this.opcode & 0x0F00) >> 8];
+					this.sound_timer = this.V[x];
 					this.pc += 2;		
 				break;
 				
 				case 0x001E: // FX1E: Adds VX to I
-					if(this.I + this.V[(this.opcode & 0x0F00) >> 8] > 0xFFF)	// VF is set to 1 when range overflow (I+VX>0xFFF), and 0 when there isn't.
+					if(this.I + this.V[x] > 0xFFF)	// VF is set to 1 when range overflow (I+VX>0xFFF), and 0 when there isn't.
 						this.V[0xF] = 1;
 					else
 						this.V[0xF] = 0;
-					this.I += this.V[(this.opcode & 0x0F00) >> 8];
+					this.I += this.V[x];
 					this.pc += 2;
 				break;
 
 				case 0x0029: // FX29: Sets I to the location of the sprite for the character in VX. Characters 0-F (in hexadecimal) are represented by a 4x5 font
-					this.I = this.V[(this.opcode & 0x0F00) >> 8] * 0x5;
+					this.I = this.V[x] * 0x5;
 					this.pc += 2;
 				break;
 
 				case 0x0033: // FX33: Stores the Binary-coded decimal representation of VX at the addresses I, I plus 1, and I plus 2
-					this.memory[this.I]     = this.V[(this.opcode & 0x0F00) >> 8] / 100;
-					this.memory[this.I + 1] = (this.V[(this.opcode & 0x0F00) >> 8] / 10) % 10;
-					this.memory[this.I + 2] = (this.V[(this.opcode & 0x0F00) >> 8] % 100) % 10;					
+					this.memory[this.I]     = this.V[x] / 100;
+					this.memory[this.I + 1] = (this.V[x] / 10) % 10;
+					this.memory[this.I + 2] = (this.V[x] % 100) % 10;					
 					this.pc += 2;
 				break;
 
 				case 0x0055: // FX55: Stores V0 to VX in memory starting at address I					
-					for (var i = 0; i <= ((this.opcode & 0x0F00) >> 8); ++i)
+					for (var i = 0; i <= x; ++i)
 						this.memory[this.I + i] = this.V[i];	
 
 					// On the original interpreter, when the operation is done, I = I + X + 1.
-					I += ((this.opcode & 0x0F00) >> 8) + 1;
-					pc += 2;
+					this.I += x + 1;
+					this.pc += 2;
 				break;
 				
 				case 0x0065: // FX65: Fills V0 to VX with values from memory starting at address I					
-					for (var i = 0; i <= ((this.opcode & 0x0F00) >> 8); ++i)
+					for (var i = 0; i <= x; ++i)
 						this.V[i] = this.memory[this.I + i];			
 
 					// On the original interpreter, when the operation is done, I = I + X + 1.
-					this.I += ((this.opcode & 0x0F00) >> 8) + 1;
+					this.I += x + 1;
 					this.pc += 2;
 				break;
 				
@@ -546,6 +569,8 @@ chip8.prototype.setKeys = function(){
 	else if(key == 88)	myChip8.key[0x0] = 1;
 	else if(key == 67)	myChip8.key[0xB] = 1;
 	else if(key == 86)	myChip8.key[0xF] = 1;
+	
+	myChip8.keyPress = true;
 	
 }
 
