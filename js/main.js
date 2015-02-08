@@ -329,7 +329,7 @@ chip8.prototype.cycle = function(){
 				//8XYE
 				//Shifts VX left by one. VF is set to the value of the most significant bit of VX before the shift.
 				case 0x000E:
-					this.V[0xF] = ( this.V[(x] & 0x80) >> 7; // CHANGED
+					this.V[0xF] = ( this.V[x] & 0x80) >> 7; // CHANGED
 					this.V[x] <<= 1; // CHANGED
 					this.pc += 2;
 				break;
