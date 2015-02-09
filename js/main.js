@@ -5,7 +5,8 @@ if (window.File && window.FileReader && window.FileList && window.Blob) {
   alert('The File APIs are not fully supported in this browser.');
 }
 
-var debug = true;
+var debug = false;
+var printCall = true;
 var errorOn0 = false;
 var game = new Array();
 var error = false;
@@ -154,6 +155,11 @@ chip8.prototype.cycle = function(){
 	var x = (this.opcode & 0x0F00) >> 8;
 	var y = (this.opcode & 0x00F0) >> 4;
 	
+	 
+	// Update timers
+	if(this.delay_timer != 0) this.delay_timer--;
+	if(this.sound_timer != 0) this.sound_timer--;
+	
 	//console.log("this.pc: " + this.pc);
 	
 	// Decode Opcode
@@ -166,7 +172,7 @@ chip8.prototype.cycle = function(){
 				//break;
 			
 				case 0x00E0: // 0x00E0: Clears the screen 
-					console.log("clear the screen");
+					if(printCall) console.log("0x00E0: clear the screen");
 					for(var x = 0; x < 64; x++){
 						for(var y = 0; y < 32; y++){
 							this.gfx[(y * 64) + x] = 0;
@@ -179,17 +185,17 @@ chip8.prototype.cycle = function(){
 				break;
 			 
 				case 0x00EE: // 0x00EE: Returns from subroutine 
-					console.log("Returns from subroutine");
+					if(printCall) console.log("0x00EE: Returns from subroutine");
 					//try uncommenting this first...
 					//	this.pc += 2;
-					console.log("this.pc: " + this.pc);
-					console.log("this.stack[this.sp]: " + this.stack[this.sp]);
+					if(debug) console.log("this.pc: " + this.pc);
+					if(debug) console.log("this.stack[this.sp]: " + this.stack[this.sp]);
 					this.pc = this.stack[this.sp];
-					console.log("this.pc: " + this.pc);
+					if(debug) console.log("this.pc: " + this.pc);
 					
-					console.log("this.sp;1: " + this.sp);						 
+					if(debug) console.log("this.sp;1: " + this.sp);						 
 					this.sp--;
-					console.log("this.sp;2: " + this.sp);
+					if(debug) console.log("this.sp;2: " + this.sp);
 					//this.state = 1;
 				break;
 		 
@@ -205,9 +211,8 @@ chip8.prototype.cycle = function(){
 		// 1nnnn
 		// Jump to location nnn
 		case 0x1000:
-		//	if(debug){
-				 console.log("jump to addr: " + (this.opcode & 0x0FFF));	
-		//	}
+			if(printCall) console.log("0x1000: jump to addr = " + (this.opcode & 0x0FFF));
+			if(debug) console.log("jump to addr: " + (this.opcode & 0x0FFF));	
 			this.pc = this.opcode & 0x0FFF;
 			this.state = 0;
 			//this.pc += 2;
@@ -216,25 +221,27 @@ chip8.prototype.cycle = function(){
 		case 0x2000:
 			//draw flicker, and no inf loop if commented out.
 //			this.pc += 2;
-			console.log("Calls subroutine at: " + (this.opcode & 0x0FFF));	
-			console.log("full code: " + this.opcode.toString(16));
+			if(printCall) console.log("0x2000: Calls subroutine at = " + (this.opcode & 0x0FFF));
+			if(debug) console.log("Calls subroutine at: " + (this.opcode & 0x0FFF));	
+			if(debug) console.log("full code: " + this.opcode.toString(16));
 			
-			console.log("this.sp;1: " + this.sp);
+			if(debug) console.log("this.sp;1: " + this.sp);
 			this.sp++;
-			console.log("this.sp;2: " + this.sp);
+			if(debug) console.log("this.sp;2: " + this.sp);
 			
-			console.log("this.stack[this.sp]: " + this.stack[this.sp]);
+			if(debug) console.log("this.stack[this.sp]: " + this.stack[this.sp]);
 			this.stack[this.sp] = this.pc;
-			console.log("this.stack[this.sp]2: " + this.stack[this.sp]);
+			if(debug) console.log("this.stack[this.sp]2: " + this.stack[this.sp]);
 			
-			console.log("this.pc1: " + this.pc);
+			if(debug) console.log("this.pc1: " + this.pc);
 			this.pc = this.opcode & 0x0FFF;
-			console.log("this.pc2: " + this.pc);
+			if(debug) console.log("this.pc2: " + this.pc);
 			
 			this.state = 0;
 		break;
 		
 		case 0x3000: // 0x3XNN: Skips the next instruction if VX equals NN
+			if(printCall) console.log("0x3XNN - skip if equal: " + this.V[x] + " = " + (this.opcode & 0x00FF));
 			if(this.V[x] == (this.opcode & 0x00FF)){
 				//this.pc += 4;
 				this.state = 2;
@@ -246,6 +253,7 @@ chip8.prototype.cycle = function(){
 		break;
 		
 		case 0x4000: // 0x4XNN: Skips the next instruction if VX doesn't equals NN
+			if(printCall) console.log("0x4XNN - skip if not equal: " + this.V[x] + " = " + (this.opcode & 0x00FF));
 			if(this.V[x] != (this.opcode & 0x00FF)){
 				//this.pc += 4;
 				this.state = 2;
@@ -256,7 +264,8 @@ chip8.prototype.cycle = function(){
 			}
 		break;
 		
-		case 0x5000: // 0x4XNN: Skips the next instruction if VX equals NN
+		case 0x5000: // 0x5XNN: Skips the next instruction if VX equals VY
+			if(printCall) console.log("0x5XNN - skip if equal: " + this.V[x] + " = " + this.V[y]);
 			if(this.V[x] == this.V[y]){
 				//this.pc += 4;
 				this.state = 2;
@@ -270,6 +279,7 @@ chip8.prototype.cycle = function(){
 		//6XNN
 		//V[X] = NN;
 		case 0x6000:
+			if(printCall) console.log("0x6XNN - set V[X] to NN: this.V[x](" + this.V[x] + ") = " + (this.opcode & 0x00FF));
 			if(debug) console.log("call opcode: 6XNN");
 			if(debug) console.log("full opcode: " + this.opcode.toString(16));
 			if(debug) console.log("this.V[x] =" + this.V[x] );
@@ -285,11 +295,12 @@ chip8.prototype.cycle = function(){
 		//7XNN
 		//Adds NN to VX.
 		case 0x7000:
-			var val = (this.opcode & 0x00FF) + this.V[x];
+			var val =  this.V[x] + (this.opcode & 0x00FF);
 			
 			if (val > 255) {
 				val -= 255;
 			}
+			if(printCall) console.log("0x7XNN - add V[X] to NN: this.V[x](" + this.V[x] + ") = " + val);
 			
 			this.V[x] = val;
 			//this.pc += 2;
@@ -303,6 +314,7 @@ chip8.prototype.cycle = function(){
 				//8XY0
 				//Sets VX to the value of VY.
 				case 0x0000:
+					if(printCall) console.log("0x8XY0 - Set VX to VY");
 					this.V[x] = this.V[y];
 					//this.pc += 2;
 					//this.state = 1;
@@ -311,6 +323,7 @@ chip8.prototype.cycle = function(){
 				//8XY1
 				//Sets VX to VX OR VY.
 				case 0x0001:
+					if(printCall) console.log("0x8XY1 - Set VX to VX OR VY");
 					this.V[x] |= this.V[y];
 					//this.pc += 2;
 					//this.state = 1;
@@ -319,6 +332,7 @@ chip8.prototype.cycle = function(){
 				//8XY2
 				//Sets VX to VX AND VY.
 				case 0x0002:
+					if(printCall) console.log("0x8XY2 - Set VX to VX AND VY");
 					this.V[x] &= this.V[y];
 					//this.pc += 2;
 					//this.state = 1;
@@ -327,6 +341,7 @@ chip8.prototype.cycle = function(){
 				//8XY3
 				//Sets VX to VX XOR VY.
 				case 0x0003:
+					if(printCall) console.log("0x8XY3 - Set VX to VX XOR VY");
 					this.V[x] ^= this.V[y];
 					//this.pc += 2;
 					//this.state = 1;
@@ -335,7 +350,9 @@ chip8.prototype.cycle = function(){
 				//8XY4
 				//Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't.
 				case 0x0004:
-					if(this.V[x] > (0xFF - this.V[y]))
+					if(printCall) console.log("0x8XY4 - Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't.");
+					var result = this.V[x] + this.V[y];
+					if(result > 0xFF)
 						this.V[0xF] = 1;
 					else
 						this.V[0xF] = 0;
@@ -348,6 +365,7 @@ chip8.prototype.cycle = function(){
 				//8XY5
 				//VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there isn't.
 				case 0x0005:
+					if(printCall) console.log("0x8XY5 - VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there isn't.");
 					if(this.V[y] > this.V[x])
 						this.V[0xF] = 0; // there's a borrow.
 					else
@@ -361,6 +379,7 @@ chip8.prototype.cycle = function(){
 				//8XY6
 				//Shifts VX right by one. VF is set to the value of the least significant bit of VX before the shift.
 				case 0x0006:
+					if(printCall) console.log("0x8XY6 - Shifts VX right by one. VF is set to the value of the least significant bit of VX before the shift.");
 					this.V[0xF] = this.V[x] & 0x1;
 					this.V[x] >>= 1;
 					//this.pc += 2;
@@ -370,6 +389,7 @@ chip8.prototype.cycle = function(){
 				//8XY7
 				// 	Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there isn't.
 				case 0x0007:
+					if(printCall) console.log("0x8XY7 - Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there isn't.");
 					if(this.V[y] > this.V[x])
 						this.V[0xF] = 0; // there's a borrow.
 					else
@@ -383,6 +403,7 @@ chip8.prototype.cycle = function(){
 				//8XYE
 				//Shifts VX left by one. VF is set to the value of the most significant bit of VX before the shift.
 				case 0x000E:
+					if(printCall) console.log("8XYE - Shifts VX left by one. VF is set to the value of the most significant bit of VX before the shift.");
 					this.V[0xF] = +( this.V[x] & 0x80); // CHANGED
 					this.V[x] <<= 1; // CHANGED
 					if(this.V[x] > 255) this.V[x] -= 256;
@@ -397,6 +418,8 @@ chip8.prototype.cycle = function(){
 		break;
 		
 		case 0x9000: // 9XY0:  Skips the next instruction if VX doesn't equal VY.
+			if(printCall) console.log("9XY0 - Skips the next instruction if VX(" + this.V[x] + ") doesn't equal VY(" + this.V[y] + ").");
+					
 			if(this.V[x] != this.V[y]){
 				this.state = 2;
 				//this.pc += 4;
@@ -410,6 +433,8 @@ chip8.prototype.cycle = function(){
 		//ANNN
 		//I = NNN;
 		case 0xA000:// Execute Opcode
+			if(printCall) console.log("ANNN - I(" + this.I + ") = NNN(" + (this.opcode & 0xFFF) + ").");
+					
 			if(debug) console.log("set I to: " + (this.opcode & 0xFFF));	
 			this.I = (this.opcode & 0xFFF);
 			//this.pc += 2;
@@ -417,16 +442,20 @@ chip8.prototype.cycle = function(){
 		break;
 		
 		case 0xB000: // BNNN: Jumps to the address NNN plus V0
+			if(printCall) console.log("BNNN - PC(" + this.pc + ") = NNN(" + (this.opcode & 0xFFF) + ") + V[0]("+this.V[0]+").");
 			this.pc = (this.opcode & 0x0FFF) + this.V[0];
 		break;
 		
 		case 0xC000: // CXNN: Sets VX to a random number and NN
+			if(printCall) console.log("CXNN - Sets V(" + this.pc + ") = Random +  NN(" + (this.opcode & 0xFFF) + ").");
+			
 			this.V[x] = Math.floor(Math.random()*0xFF) & (this.opcode & 0x00FF);
 			//this.state = 1;
 		break;
 		
 		case 0xD000:
-			if(debug) console.log("call opcode 0xDXYN")
+			if(printCall) console.log("0xDXYN - Draw screen.");
+			if(debug) console.log("call opcode 0xDXYN");
 			if(debug) console.log("full opcode: " + this.opcode.toString(16));	
 			var dx = this.V[x];
 			var dy = this.V[y];
@@ -441,7 +470,7 @@ chip8.prototype.cycle = function(){
 						var px = dx + xLine;
 						var py = dy + yLine;
 						
-						if(py >= 64){
+					/*	if(py >= 64){
 							py-= 64;
 						}
 						if(py < 0){
@@ -452,7 +481,7 @@ chip8.prototype.cycle = function(){
 						}
 						if(py < 0){
 							py += 32;
-						}
+						}*/
 						
 						if(this.gfx[px + (py * 64)] == 1){
 							this.V[0xF] = 1;
@@ -473,9 +502,9 @@ chip8.prototype.cycle = function(){
 				//EX9E
 				//Skips the next instruction if the key stored in VX is pressed.
 				case 0x009E:
-					console.log("EX9E +" + this.key[this.V[x]]);
+					if(printCall) console.log("EX9E +" + this.key[this.V[x]]);
 				
-					if(this.key[this.V[x]]){
+					if(this.key[this.V[x]] > 0){
 						//this.pc += 2;
 						this.state = 2;
 					}
@@ -488,14 +517,14 @@ chip8.prototype.cycle = function(){
 				//EXA1
 				//Skips the next instruction if the key stored in VX isn't pressed.
 				case 0x00A1:
-					console.log("key = " + this.key[this.V[x]]);
-					if(!this.key[this.V[x]]){
-						console.log("key in VX not pressed. Skip");
+					if(printCall) console.log("0x00A1: key = " + this.key[this.V[x]]);
+					if(this.key[this.V[x]] == 0){
+						if(debug) console.log("key in VX not pressed. Skip");
 						//this.pc += 2;
 						this.state = 2;
 					}
 					else{
-						console.log("key in VX pressed. No Skip");
+						if(debug) console.log("key in VX pressed. No Skip");
 						//this.pc += 2;
 					//	this.state = 1;
 					}
@@ -513,6 +542,7 @@ chip8.prototype.cycle = function(){
 				//FX07
 				//Sets VX to the value of the delay timer.
 				case 0x0007:
+					if(printCall) console.log("FX07 - Sets VX to the value of the delay timer.");
 					this.V[x] = this.delay_timer;
 					//this.pc += 2;
 					//this.state = 1;
@@ -520,12 +550,13 @@ chip8.prototype.cycle = function(){
 				
 				case 0x000A: // FX0A: A key press is awaited, and then stored in VX		
 				{
-					console.log("FX0A");
+					console.log("FX0A - await key press.");
 					//this.pc += 2;
 					//this.state = 1;
 					if(!this.currentKey){
 						return;
 					}else{
+						if(debug) console.write("this.currentKey = " + this.currentKey);
 						this.key[this.V[x]] = this.currentKey;
 					}
 					
@@ -534,18 +565,21 @@ chip8.prototype.cycle = function(){
 				break;
 				
 				case 0x0015:
+					if(printCall) console.log("FX15 - delay timer equals VX.");
 					this.delay_timer = this.V[x];
 					//this.pc += 2;		
 					//this.state = 1;
 				break;
 				
 				case 0x0018:
+					if(printCall) console.log("FX18 - sound timer equals VX.");
 					this.sound_timer = this.V[x];
 					//this.pc += 2;		
 					//this.state = 1;
 				break;
 				
 				case 0x001E: // FX1E: Adds VX to I
+					if(printCall) console.log("FX1E: Adds VX to I");
 					/*if(this.I + this.V[x] > 0xFFF)	// VF is set to 1 when range overflow (I+VX>0xFFF), and 0 when there isn't.
 						this.V[0xF] = 1;
 					else
@@ -556,12 +590,14 @@ chip8.prototype.cycle = function(){
 				break;
 
 				case 0x0029: // FX29: Sets I to the location of the sprite for the character in VX. Characters 0-F (in hexadecimal) are represented by a 4x5 font
+					if(printCall) console.log("FX29: Sets I to the location of the sprite for the character in VX. Characters 0-F (in hexadecimal) are represented by a 4x5 font");
 					this.I = this.V[x] * 0x5;
 					//this.pc += 2;
 					//this.state = 1;
 				break;
 
 				case 0x0033: // FX33: Stores the Binary-coded decimal representation of VX at the addresses I, I plus 1, and I plus 2
+					if(printCall) console.log("FX33: Stores the Binary-coded decimal representation of VX at the addresses I, I plus 1, and I plus 2");
 					this.memory[this.I]     = this.V[x] / 100;
 					this.memory[this.I + 1] = (this.V[x] / 10) % 10;
 					this.memory[this.I + 2] = (this.V[x] % 100) % 10;					
@@ -569,22 +605,24 @@ chip8.prototype.cycle = function(){
 					//this.state = 1;
 				break;
 
-				case 0x0055: // FX55: Stores V0 to VX in memory starting at address I					
+				case 0x0055: // FX55: Stores V0 to VX in memory starting at address I
+					if(printCall) console.log("FX55: Stores V0 to VX in memory starting at address I");
 					for (var i = 0; i <= x; ++i)
 						this.memory[this.I + i] = this.V[i];	
 
 					// On the original interpreter, when the operation is done, I = I + X + 1.
-					//this.I += x + 1;
+					this.I += x + 1;
 					//this.pc += 2;
 					//this.state = 1;
 				break;
 				
-				case 0x0065: // FX65: Fills V0 to VX with values from memory starting at address I					
+				case 0x0065: // FX65: Fills V0 to VX with values from memory starting at address I	
+					if(printCall) console.log("FX65: Fills V0 to VX with values from memory starting at address I");
 					for (var i = 0; i <= x; ++i)
 						this.V[i] = this.memory[this.I + i];			
 
 					// On the original interpreter, when the operation is done, I = I + X + 1.
-					//this.I += x + 1;
+					this.I += x + 1;
 					//this.pc += 2;
 					//this.state = 1;
 				break;
@@ -602,10 +640,6 @@ chip8.prototype.cycle = function(){
 	
 	this.pc += (2 * this.state);
 	this.state = 1;
- 
-	// Update timers
-	if(this.delay_time > 0) this.delay_time--;
-	if(this.sound_timer > 0) this.sound_timer--;
 }
 
 chip8.prototype.setKeys = function(){
@@ -632,7 +666,7 @@ var startEmu = function(){
 	myChip8.reset(); //(?)
 	myChip8.loadGame(game);
 	
-	setInterval(function(){ mainLoop() }, (1000/60)/60);
+	setInterval(function(){ mainLoop() }, (1000/60));
 	
 	//make not inf
 	
@@ -645,7 +679,7 @@ var startEmu = function(){
 }
 
 var mainLoop = function(){
-	//for(var i = 0; i <= 60; i++){
+	for(var i = 0; i <= 60; i++){
 		if(!error){
 			myChip8.cycle();
 			
@@ -654,7 +688,7 @@ var mainLoop = function(){
 			
 			myChip8.setKeys();
 		}
-	//}
+	}
 }
 
 var c = document.getElementById("screen");
