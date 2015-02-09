@@ -110,13 +110,35 @@ chip8.prototype.reset = function(){
 	this.key = new Array(16); // 1 bytes long(?) - uchar
 	
 	for(var i = 0; i < 16; ++i){
-		this.key[i] = 0;
+		this.key[i] = false;
 	}
     //0x00E0 – Clears the screen
     //0xDXYN – Draws a sprite on the screen
 	this.draw = false;
 	this.waitForKey = false;
 	this.keyPress = false;
+	
+	this.keyMap = {
+	49: 0x1, // 1
+	50: 0x2, // 2
+	51: 0x3, // 3
+	52: 0x4, // 4
+	81: 0x5, // Q
+	87: 0x6, // W
+	69: 0x7, // E
+	82: 0x8, // R
+	65: 0x9, // A
+	83: 0xA, // S
+	68: 0xB, // D
+	70: 0xC, // F
+	90: 0xD, // Z
+	88: 0xE, // X
+	67: 0xF, // C
+	86: 0x10 // V
+	};
+	this.currentKey = false;
+	
+	this.state = 0;
 }
 
 chip8.prototype.loadGame = function(myGame){
@@ -152,21 +174,23 @@ chip8.prototype.cycle = function(){
 					}
 					this.draw = true;
 					
-					this.pc += 2;
+					//this.pc += 2;
+					//this.state = 1;
 				break;
 			 
 				case 0x00EE: // 0x00EE: Returns from subroutine 
 					console.log("Returns from subroutine");
-						
+					//try uncommenting this first...
+					//	this.pc += 2;
 					console.log("this.pc: " + this.pc);
 					console.log("this.stack[this.sp]: " + this.stack[this.sp]);
 					this.pc = this.stack[this.sp];
 					console.log("this.pc: " + this.pc);
 					
 					console.log("this.sp;1: " + this.sp);						 
-					--this.sp;
+					this.sp--;
 					console.log("this.sp;2: " + this.sp);
-					this.pc += 2;
+					//this.state = 1;
 				break;
 		 
 				default:
@@ -185,9 +209,13 @@ chip8.prototype.cycle = function(){
 				 console.log("jump to addr: " + (this.opcode & 0x0FFF));	
 		//	}
 			this.pc = this.opcode & 0x0FFF;
+			this.state = 0;
+			//this.pc += 2;
 		break;
 
 		case 0x2000:
+			//draw flicker, and no inf loop if commented out.
+//			this.pc += 2;
 			console.log("Calls subroutine at: " + (this.opcode & 0x0FFF));	
 			console.log("full code: " + this.opcode.toString(16));
 			
@@ -202,27 +230,41 @@ chip8.prototype.cycle = function(){
 			console.log("this.pc1: " + this.pc);
 			this.pc = this.opcode & 0x0FFF;
 			console.log("this.pc2: " + this.pc);
+			
+			this.state = 0;
 		break;
 		
 		case 0x3000: // 0x3XNN: Skips the next instruction if VX equals NN
-			if(this.V[x] == (this.opcode & 0x00FF))
-				this.pc += 4;
-			else
-				this.pc += 2;
+			if(this.V[x] == (this.opcode & 0x00FF)){
+				//this.pc += 4;
+				this.state = 2;
+			}
+			else{
+				//this.pc += 2;
+				//this.state = 1;
+			}
 		break;
 		
 		case 0x4000: // 0x4XNN: Skips the next instruction if VX doesn't equals NN
-			if(this.V[x] != (this.opcode & 0x00FF))
-				this.pc += 4;
-			else
-				this.pc += 2;
+			if(this.V[x] != (this.opcode & 0x00FF)){
+				//this.pc += 4;
+				this.state = 2;
+			}
+			else{
+				//this.pc += 2;
+				//this.state = 1;
+			}
 		break;
 		
 		case 0x5000: // 0x4XNN: Skips the next instruction if VX equals NN
-			if(this.V[x] == this.V[y])
-				this.pc += 4;
-			else
-				this.pc += 2;
+			if(this.V[x] == this.V[y]){
+				//this.pc += 4;
+				this.state = 2;
+			}
+			else{
+				//this.pc += 2;
+				//this.state = 1;
+			}
 		break;
 		
 		//6XNN
@@ -234,7 +276,10 @@ chip8.prototype.cycle = function(){
 			if(debug) console.log("(this.opcode & 0x00FF) =" + (this.opcode & 0x00FF) );
 			if(debug) console.log("(this.opcode & 0x00FF) 16 =" + (this.opcode & 0x00FF).toString(16));
 			this.V[x] = (this.opcode & 0x00FF);
-			this.pc += 2;
+			if(debug) console.log("this.V[x]2 =" + this.V[x] );
+			//this.pc += 2;
+			//this.state = 1;
+			this.state = 1;
 		break;
 		
 		//7XNN
@@ -243,11 +288,12 @@ chip8.prototype.cycle = function(){
 			var val = (this.opcode & 0x00FF) + this.V[x];
 			
 			if (val > 255) {
-				val -= 256;
+				val -= 255;
 			}
 			
 			this.V[x] = val;
-			this.pc += 2;
+			//this.pc += 2;
+			//this.state = 1;
 		break;
 		
 		
@@ -258,28 +304,32 @@ chip8.prototype.cycle = function(){
 				//Sets VX to the value of VY.
 				case 0x0000:
 					this.V[x] = this.V[y];
-					this.pc += 2;
+					//this.pc += 2;
+					//this.state = 1;
 				break;
 				
 				//8XY1
 				//Sets VX to VX OR VY.
 				case 0x0001:
 					this.V[x] |= this.V[y];
-					this.pc += 2;
+					//this.pc += 2;
+					//this.state = 1;
 				break;
 				
 				//8XY2
 				//Sets VX to VX AND VY.
 				case 0x0002:
 					this.V[x] &= this.V[y];
-					this.pc += 2;
+					//this.pc += 2;
+					//this.state = 1;
 				break;
 				
 				//8XY3
 				//Sets VX to VX XOR VY.
 				case 0x0003:
 					this.V[x] ^= this.V[y];
-					this.pc += 2;
+					//this.pc += 2;
+					//this.state = 1;
 				break;
 				
 				//8XY4
@@ -291,7 +341,8 @@ chip8.prototype.cycle = function(){
 						this.V[0xF] = 0;
 					
 					this.V[x] += this.V[y];
-					this.pc += 2;
+					//this.pc += 2;
+					//this.state = 1;
 				break;
 				
 				//8XY5
@@ -303,7 +354,8 @@ chip8.prototype.cycle = function(){
 						this.V[0xF] = 1;
 					
 					this.V[x] -= this.V[y];
-					this.pc += 2;
+					//this.pc += 2;
+					//this.state = 1;
 				break;
 				
 				//8XY6
@@ -311,7 +363,8 @@ chip8.prototype.cycle = function(){
 				case 0x0006:
 					this.V[0xF] = this.V[x] & 0x1;
 					this.V[x] >>= 1;
-					this.pc += 2;
+					//this.pc += 2;
+					//this.state = 1;
 				break;
 				
 				//8XY7
@@ -323,15 +376,18 @@ chip8.prototype.cycle = function(){
 						this.V[0xF] = 1;
 					
 					this.V[x] = this.V[y] - this.V[x];
-					this.pc += 2;
+					//this.pc += 2;
+					//this.state = 1;
 				break;
 				
 				//8XYE
 				//Shifts VX left by one. VF is set to the value of the most significant bit of VX before the shift.
 				case 0x000E:
-					this.V[0xF] = ( this.V[x] & 0x80) >> 7; // CHANGED
+					this.V[0xF] = +( this.V[x] & 0x80); // CHANGED
 					this.V[x] <<= 1; // CHANGED
-					this.pc += 2;
+					if(this.V[x] > 255) this.V[x] -= 256;
+					//this.pc += 2;
+					//this.state = 1;
 				break;
 				
 				default:
@@ -341,41 +397,23 @@ chip8.prototype.cycle = function(){
 		break;
 		
 		case 0x9000: // 9XY0:  Skips the next instruction if VX doesn't equal VY.
-			if(this.V[x] != this.V[y])
-				this.pc += 4;
-			else
-				this.pc += 2;
-		break;
-		
-		/*case 0x4000:
-			if(debug) console.log("call opcode 0x0004");	
-			if(this.V[y] > (0xFF - this.V[x])){
-				this.V[0xF] = 1; //carry
+			if(this.V[x] != this.V[y]){
+				this.state = 2;
+				//this.pc += 4;
 			}
-			
 			else{
-				this.V[0xF] = 0; // no carry
+				//this.pc += 2;
+				//this.state = 1;
 			}
-			
-			this.V[x] += this.V[y];
-			this.pc += 2;
 		break;
 		
-		case 0x0033:
-			if(debug) console.log("call opcode 0x0033");	
-			this.memory[this.I]		= this.V[x] / 100;
-			this.memory[this.I + 1]	= (this.V[x] / 10) % 10;
-			this.memory[this.I + 2]	= (this.V[x] / 100) % 10;
-			++this.pc;
-		break;
-		*/
-				
 		//ANNN
 		//I = NNN;
 		case 0xA000:// Execute Opcode
 			if(debug) console.log("set I to: " + (this.opcode & 0xFFF));	
 			this.I = (this.opcode & 0xFFF);
-			this.pc += 2;
+			//this.pc += 2;
+			//this.state = 1;
 		break;
 		
 		case 0xB000: // BNNN: Jumps to the address NNN plus V0
@@ -383,7 +421,8 @@ chip8.prototype.cycle = function(){
 		break;
 		
 		case 0xC000: // CXNN: Sets VX to a random number and NN
-			this.V[x] = (Math.random() % 0xFF) & (this.opcode & 0x00FF);
+			this.V[x] = Math.floor(Math.random()*0xFF) & (this.opcode & 0x00FF);
+			//this.state = 1;
 		break;
 		
 		case 0xD000:
@@ -398,18 +437,35 @@ chip8.prototype.cycle = function(){
 			for(var yLine = 0; yLine < height; yLine++){
 				pixel = this.memory[this.I + yLine];
 				for(var xLine = 0; xLine < 8; xLine++){
-					if((pixel & (0x80 >> xLine)) > 0){
-						if(this.gfx[dx + xLine + ((dy +yLine) *64)] == 1){
+					if((pixel & (0x80 >> xLine)) != 0){
+						var px = dx + xLine;
+						var py = dy + yLine;
+						
+						if(py >= 64){
+							py-= 64;
+						}
+						if(py < 0){
+							py += 64;
+						}
+						if(py >= 32){
+							py-= 32;
+						}
+						if(py < 0){
+							py += 32;
+						}
+						
+						if(this.gfx[px + (py * 64)] == 1){
 							this.V[0xF] = 1;
 						}
 						
-						this.gfx[dx + xLine + ((dy + yLine) * 64)] ^= 1;
+						this.gfx[px + (py * 64)] ^= 1;
 					}
 				}
 			}
 			
 			this.draw = true;
-			this.pc += 2;
+			//this.pc += 2;
+			//this.state = 1;
 		break;
 		
 		case 0xE000:
@@ -417,23 +473,31 @@ chip8.prototype.cycle = function(){
 				//EX9E
 				//Skips the next instruction if the key stored in VX is pressed.
 				case 0x009E:
-					if(this.key[this.V[x]] != 0)
-						this.pc += 4;
-					else
-						this.pc += 2;
+					console.log("EX9E +" + this.key[this.V[x]]);
+				
+					if(this.key[this.V[x]]){
+						//this.pc += 2;
+						this.state = 2;
+					}
+					else{
+						//this.state = 1;
+						//this.pc += 2;
+					}
 				break;
 				
 				//EXA1
 				//Skips the next instruction if the key stored in VX isn't pressed.
 				case 0x00A1:
 					console.log("key = " + this.key[this.V[x]]);
-					if(this.key[this.V[x]] == 0){
+					if(!this.key[this.V[x]]){
 						console.log("key in VX not pressed. Skip");
-						this.pc += 4;
+						//this.pc += 2;
+						this.state = 2;
 					}
 					else{
 						console.log("key in VX pressed. No Skip");
-						this.pc += 2;
+						//this.pc += 2;
+					//	this.state = 1;
 					}
 				break;
 				
@@ -450,58 +514,59 @@ chip8.prototype.cycle = function(){
 				//Sets VX to the value of the delay timer.
 				case 0x0007:
 					this.V[x] = this.delay_timer;
-					this.pc += 2;
+					//this.pc += 2;
+					//this.state = 1;
 				break;
 				
 				case 0x000A: // FX0A: A key press is awaited, and then stored in VX		
 				{
-					if(!this.waitForKey){
-						this.keyPress = false;
-						this.waitForKey = true;
+					console.log("FX0A");
+					//this.pc += 2;
+					//this.state = 1;
+					if(!this.currentKey){
+						return;
+					}else{
+						this.key[this.V[x]] = this.currentKey;
 					}
 					
-					else if(keyPress){
-						this.waitForKey = false;
-						for(var i = 0; i < 16; ++i)
-						{
-							if(this.key[i] != 0)
-								this.V[x] = this.key[i];
-						}
-					}
-					
-					this.pc += 2;					
+										
 				}
 				break;
 				
 				case 0x0015:
 					this.delay_timer = this.V[x];
-					this.pc += 2;		
+					//this.pc += 2;		
+					//this.state = 1;
 				break;
 				
 				case 0x0018:
 					this.sound_timer = this.V[x];
-					this.pc += 2;		
+					//this.pc += 2;		
+					//this.state = 1;
 				break;
 				
 				case 0x001E: // FX1E: Adds VX to I
-					if(this.I + this.V[x] > 0xFFF)	// VF is set to 1 when range overflow (I+VX>0xFFF), and 0 when there isn't.
+					/*if(this.I + this.V[x] > 0xFFF)	// VF is set to 1 when range overflow (I+VX>0xFFF), and 0 when there isn't.
 						this.V[0xF] = 1;
 					else
-						this.V[0xF] = 0;
+						this.V[0xF] = 0;*/
 					this.I += this.V[x];
-					this.pc += 2;
+					//this.pc += 2;
+					//this.state = 1;
 				break;
 
 				case 0x0029: // FX29: Sets I to the location of the sprite for the character in VX. Characters 0-F (in hexadecimal) are represented by a 4x5 font
 					this.I = this.V[x] * 0x5;
-					this.pc += 2;
+					//this.pc += 2;
+					//this.state = 1;
 				break;
 
 				case 0x0033: // FX33: Stores the Binary-coded decimal representation of VX at the addresses I, I plus 1, and I plus 2
 					this.memory[this.I]     = this.V[x] / 100;
 					this.memory[this.I + 1] = (this.V[x] / 10) % 10;
 					this.memory[this.I + 2] = (this.V[x] % 100) % 10;					
-					this.pc += 2;
+					//this.pc += 2;
+					//this.state = 1;
 				break;
 
 				case 0x0055: // FX55: Stores V0 to VX in memory starting at address I					
@@ -509,8 +574,9 @@ chip8.prototype.cycle = function(){
 						this.memory[this.I + i] = this.V[i];	
 
 					// On the original interpreter, when the operation is done, I = I + X + 1.
-					this.I += x + 1;
-					this.pc += 2;
+					//this.I += x + 1;
+					//this.pc += 2;
+					//this.state = 1;
 				break;
 				
 				case 0x0065: // FX65: Fills V0 to VX with values from memory starting at address I					
@@ -518,8 +584,9 @@ chip8.prototype.cycle = function(){
 						this.V[i] = this.memory[this.I + i];			
 
 					// On the original interpreter, when the operation is done, I = I + X + 1.
-					this.I += x + 1;
-					this.pc += 2;
+					//this.I += x + 1;
+					//this.pc += 2;
+					//this.state = 1;
 				break;
 				
 				default:
@@ -533,7 +600,8 @@ chip8.prototype.cycle = function(){
 		break;
 	}
 	
-	
+	this.pc += (2 * this.state);
+	this.state = 1;
  
 	// Update timers
 	if(this.delay_time > 0) this.delay_time--;
@@ -544,73 +612,18 @@ chip8.prototype.setKeys = function(){
 
 }
 
-
-
- document.onkeydown = function(e){
-	var key = e.keyCode;
-	
-	//if(key == 27)    // esc
-	//	exit(0);
-
-	if(debug) console.log("key: " + key);
-	
-	if(key == 49)		myChip8.key[0x1] = 1;
-	else if(key == 50)	myChip8.key[0x2] = 1;
-	else if(key == 51)	myChip8.key[0x3] = 1;
-	else if(key == 52)	myChip8.key[0xC] = 1;
-
-	else if(key == 81)	myChip8.key[0x4] = 1;
-	else if(key == 87)	myChip8.key[0x5] = 1;
-	else if(key == 69)	myChip8.key[0x6] = 1;
-	else if(key == 82)	myChip8.key[0xD] = 1;
-
-	else if(key == 65)	myChip8.key[0x7] = 1;
-	else if(key == 83)	myChip8.key[0x8] = 1;
-	else if(key == 68)	myChip8.key[0x9] = 1;
-	else if(key == 70)	myChip8.key[0xE] = 1;
-
-	else if(key == 90)	myChip8.key[0xA] = 1;
-	else if(key == 88)	myChip8.key[0x0] = 1;
-	else if(key == 67)	myChip8.key[0xB] = 1;
-	else if(key == 86)	myChip8.key[0xF] = 1;
-	
-	myChip8.keyPress = true;
-	
-}
-
- document.onkeyup = function(e){
-	var key = e.keyCode;
-	
-	//if(key == 27)    // esc
-	//	exit(0);
-
-	if(debug) console.log("keyup: " + key);
-	
-	if(key == 49)		myChip8.key[0x1] = 0;
-	else if(key == 50)	myChip8.key[0x2] = 0;
-	else if(key == 51)	myChip8.key[0x3] = 0;
-	else if(key == 52)	myChip8.key[0xC] = 0;
-
-	else if(key == 81)	myChip8.key[0x4] = 0;
-	else if(key == 87)	myChip8.key[0x5] = 0;
-	else if(key == 69)	myChip8.key[0x6] = 0;
-	else if(key == 82)	myChip8.key[0xD] = 0;
-
-	else if(key == 65)	myChip8.key[0x7] = 0;
-	else if(key == 83)	myChip8.key[0x8] = 0;
-	else if(key == 68)	myChip8.key[0x9] = 0;
-	else if(key == 70)	myChip8.key[0xE] = 0;
-
-	else if(key == 90)	myChip8.key[0xA] = 0;
-	else if(key == 88)	myChip8.key[0x0] = 0;
-	else if(key == 67)	myChip8.key[0xB] = 0;
-	else if(key == 86)	myChip8.key[0xF] = 0;
-	
-}
-
 //main
 var myChip8 = new chip8();
 	
+ document.addEventListener("keydown", function(e) {
+	myChip8.key[myChip8.keyMap[e.keyCode]] = true;
+	myChip8.currentKey = myChip8.keyMap[e.keyCode];
+	});
+	
+document.addEventListener("keyup", function(e) {
+	myChip8.key[myChip8.keyMap[e.keyCode]] = false;
+	myChip8.currentKey = false;
+});
 	
 var startEmu = function(){
 	//setup graphics
@@ -662,4 +675,5 @@ var drawGraphics = function(){
 		}
 	}
 	
+	this.draw = false;
 }
