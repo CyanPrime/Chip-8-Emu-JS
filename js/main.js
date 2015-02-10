@@ -298,9 +298,9 @@ chip8.prototype.cycle = function(){
 			var val =  this.V[x] + (this.opcode & 0x00FF);
 			
 			if (val > 255) {
-				val -= 255;
+				val -= 256;
 			}
-			if(printCall) console.log("0x7XNN - add V[X] to NN: this.V[x](" + this.V[x] + ") = " + val);
+			if(printCall) console.log("0x7XNN -  V[X] += NN: this.V[x](" + this.V[x] + ") = " + val);
 			
 			this.V[x] = val;
 			//this.pc += 2;
@@ -650,8 +650,11 @@ chip8.prototype.setKeys = function(){
 var myChip8 = new chip8();
 	
  document.addEventListener("keydown", function(e) {
-	myChip8.key[myChip8.keyMap[e.keyCode]] = true;
-	myChip8.currentKey = myChip8.keyMap[e.keyCode];
+	if(e.keyCode == 13) error = true;
+	else{
+		myChip8.key[myChip8.keyMap[e.keyCode]] = true;
+		myChip8.currentKey = myChip8.keyMap[e.keyCode];
+	}
 	});
 	
 document.addEventListener("keyup", function(e) {
@@ -666,7 +669,7 @@ var startEmu = function(){
 	myChip8.reset(); //(?)
 	myChip8.loadGame(game);
 	
-	setInterval(function(){ mainLoop() }, (1000/60));
+	setInterval(function(){ mainLoop() }, (1000/60)/30);
 	
 	//make not inf
 	
@@ -679,7 +682,7 @@ var startEmu = function(){
 }
 
 var mainLoop = function(){
-	for(var i = 0; i <= 60; i++){
+	//for(var i = 0; i <= 60; i++){
 		if(!error){
 			myChip8.cycle();
 			
@@ -688,17 +691,17 @@ var mainLoop = function(){
 			
 			myChip8.setKeys();
 		}
-	}
+	//}
 }
 
 var c = document.getElementById("screen");
 var ctx = c.getContext("2d");
 
 var drawGraphics = function(){
-	ctx.fillStyle = "#000000";
+	ctx.fillStyle = "#222222";
 	ctx.fillRect(0,0,640,480);
 	
-	ctx.fillStyle = "#FFFFFF";
+	ctx.fillStyle = "#444444";
 	for(var x = 0; x < 64; x++){
 		for(var y = 0; y < 32; y++){
 			if(myChip8.gfx[(y * 64) + x] == 1){
@@ -709,5 +712,5 @@ var drawGraphics = function(){
 		}
 	}
 	
-	this.draw = false;
+	//this.draw = false;
 }
