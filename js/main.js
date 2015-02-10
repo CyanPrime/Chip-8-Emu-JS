@@ -157,8 +157,8 @@ chip8.prototype.cycle = function(){
 	
 	 
 	// Update timers
-	if(this.delay_timer != 0) this.delay_timer--;
-	if(this.sound_timer != 0) this.sound_timer--;
+	if(this.delay_timer > 0) this.delay_timer--;
+	if(this.sound_timer > 0) this.sound_timer--;
 	
 	//console.log("this.pc: " + this.pc);
 	
@@ -281,12 +281,12 @@ chip8.prototype.cycle = function(){
 		case 0x6000:
 			if(printCall) console.log("0x6XNN - set V[X] to NN: this.V[x](" + this.V[x] + ") = " + (this.opcode & 0x00FF));
 			if(debug) console.log("call opcode: 6XNN");
-			if(debug) console.log("full opcode: " + this.opcode.toString(16));
-			if(debug) console.log("this.V[x] =" + this.V[x] );
-			if(debug) console.log("(this.opcode & 0x00FF) =" + (this.opcode & 0x00FF) );
+			console.log("full opcode: " + this.opcode.toString(16));
+			console.log("this.V[x] =" + this.V[x] );
+			console.log("(this.opcode & 0x00FF) =" + (this.opcode & 0x00FF) );
 			if(debug) console.log("(this.opcode & 0x00FF) 16 =" + (this.opcode & 0x00FF).toString(16));
 			this.V[x] = (this.opcode & 0x00FF);
-			if(debug) console.log("this.V[x]2 =" + this.V[x] );
+			console.log("this.V[x]2 =" + this.V[x] );
 			//this.pc += 2;
 			//this.state = 1;
 			this.state = 1;
@@ -301,7 +301,7 @@ chip8.prototype.cycle = function(){
 				val -= 256;
 			}
 			if(printCall) console.log("0x7XNN -  V[X] += NN: this.V[x](" + this.V[x] + ") = " + val);
-			
+			//error = true;
 			this.V[x] = val;
 			//this.pc += 2;
 			//this.state = 1;
@@ -351,13 +351,15 @@ chip8.prototype.cycle = function(){
 				//Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't.
 				case 0x0004:
 					if(printCall) console.log("0x8XY4 - Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't.");
-					var result = this.V[x] + this.V[y];
-					if(result > 0xFF)
-						this.V[0xF] = 1;
-					else
+					var sum = this.V[x] + this.V[y];
+					if(sum > 0xFF){
 						this.V[0xF] = 0;
+						sum -= 256; //needs to be here for invaders to run
+					}
+					else
+						this.V[0xF] = 1;
 					
-					this.V[x] += this.V[y];
+					this.V[x]  = sum;
 					//this.pc += 2;
 					//this.state = 1;
 				break;
@@ -366,12 +368,14 @@ chip8.prototype.cycle = function(){
 				//VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there isn't.
 				case 0x0005:
 					if(printCall) console.log("0x8XY5 - VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there isn't.");
-					if(this.V[y] > this.V[x])
-						this.V[0xF] = 0; // there's a borrow.
+					//switch around the borrow flags to play invaders properly.
+					if(this.V[x] > this.V[y])
+						this.V[0xF] = 1; // there's a borrow.
 					else
-						this.V[0xF] = 1;
+						this.V[0xF] = 0;
 					
 					this.V[x] -= this.V[y];
+					//if(this.V[x] < 0) this.V[x] == 256;
 					//this.pc += 2;
 					//this.state = 1;
 				break;
@@ -396,6 +400,7 @@ chip8.prototype.cycle = function(){
 						this.V[0xF] = 1;
 					
 					this.V[x] = this.V[y] - this.V[x];
+					if(this.V[x] < 0) this.V[x] == 256;
 					//this.pc += 2;
 					//this.state = 1;
 				break;
@@ -484,6 +489,7 @@ chip8.prototype.cycle = function(){
 						}
 						
 						if(this.gfx[px + (py * 64)] == 1){
+							//for collision detection (hit this pixel)
 							this.V[0xF] = 1;
 						}
 						
