@@ -470,7 +470,7 @@ chip8.prototype.cycle = function(){
 						var px = dx + xLine;
 						var py = dy + yLine;
 						
-					/*	if(py >= 64){
+						if(py >= 64){
 							py-= 64;
 						}
 						if(py < 0){
@@ -481,7 +481,7 @@ chip8.prototype.cycle = function(){
 						}
 						if(py < 0){
 							py += 32;
-						}*/
+						}
 						
 						if(this.gfx[px + (py * 64)] == 1){
 							this.V[0xF] = 1;
@@ -611,7 +611,7 @@ chip8.prototype.cycle = function(){
 						this.memory[this.I + i] = this.V[i];	
 
 					// On the original interpreter, when the operation is done, I = I + X + 1.
-					this.I += x + 1;
+					this.I += (x + 1);
 					//this.pc += 2;
 					//this.state = 1;
 				break;
@@ -622,7 +622,7 @@ chip8.prototype.cycle = function(){
 						this.V[i] = this.memory[this.I + i];			
 
 					// On the original interpreter, when the operation is done, I = I + X + 1.
-					this.I += x + 1;
+					this.I += (x + 1);
 					//this.pc += 2;
 					//this.state = 1;
 				break;
@@ -704,7 +704,7 @@ var drawGraphics = function(){
 	ctx.fillStyle = "#444444";
 	for(var x = 0; x < 64; x++){
 		for(var y = 0; y < 32; y++){
-			if(myChip8.gfx[(y * 64) + x] == 1){
+			if(myChip8.gfx[x + (y * 64)] == 1){
 				//console.log("gfx: " + myChip8.gfx[(y * 64) + x]);
 				ctx.fillRect(x * 10,y * 10,10,10);
 			}
@@ -712,5 +712,5 @@ var drawGraphics = function(){
 		}
 	}
 	
-	//this.draw = false;
+	this.draw = false;
 }
