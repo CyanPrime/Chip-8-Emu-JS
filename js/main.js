@@ -6,10 +6,61 @@ if (window.File && window.FileReader && window.FileList && window.Blob) {
 }
 
 var debug = false;
-var printCall = true;
+var printCall = false;
 var errorOn0 = false;
 var game = new Array();
 var error = false;
+var customKeyMap = false;
+var refreshScreen = 0;
+
+var gameKeyMap = {"BRIX":   
+					{
+						37: 52,
+						39: 87
+					},
+							
+				  "INVADERS":  
+					{
+						37: 52,
+						39: 87,
+						90: 81
+					},
+					
+				   "PONG":  
+					{
+						87: 49,
+						83: 52,
+						38: 70,
+						40: 90
+					},
+				}
+
+var gameKeyMapHTML = {
+						"BRIX": 'Move left: Left arrow.<br />Move right: Right arrow.',
+						"INVADERS": 'Move left: Left arrow.<br />Move right: Right arrow.<br />Z: Shoot.',
+						"PONG": 'Move up P1: W.<br />Move down P1: S.<br />Move up P2: Up arrow.<br />Move down P2: Down arrow.'
+					}
+
+var curGameKeys;
+
+/*var gameKeyMap = {{
+		49: 0x1, // 1
+		50: 0x2, // 2
+		51: 0x3, // 3
+		52: 0x4, // 4
+		81: 0x5, // Q
+		87: 0x6, // W
+		69: 0x7, // E
+		82: 0x8, // R
+		65: 0x9, // A
+		83: 0xA, // S
+		68: 0xB, // D
+		70: 0xC, // F
+		90: 0xD, // Z
+		88: 0xE, // X
+		67: 0xF, // C
+		86: 0x10 // V
+	}};*/
 
 function handleFileSelect(evt) {
     evt.stopPropagation();
@@ -18,7 +69,18 @@ function handleFileSelect(evt) {
     var files = evt.dataTransfer.files; // FileList object.
 	var file = files[0];
 
-
+	curGameKeys = gameKeyMap[file.name]; 
+	
+	if(curGameKeys != undefined){
+		customKeyMap = true;
+		document.getElementById("controls").innerHTML = gameKeyMapHTML[file.name];
+	}
+	
+	else{
+		customKeyMap = false;
+		document.getElementById("controls").innerHTML = "No custom controls.";
+	}
+		
 	var reader = new FileReader();
 	reader.onload = function(e) {
 		if(debug) console.log(e.target.result.byteLength);
@@ -658,13 +720,34 @@ var myChip8 = new chip8();
  document.addEventListener("keydown", function(e) {
 	if(e.keyCode == 13) error = true;
 	else{
-		myChip8.key[myChip8.keyMap[e.keyCode]] = true;
-		myChip8.currentKey = myChip8.keyMap[e.keyCode];
+		if(customKeyMap){
+			if(curGameKeys[e.keyCode] != undefined){
+				console.log("down cust: " + curGameKeys[e.keyCode] + " || " + e.keyCode);
+				myChip8.key[myChip8.keyMap[curGameKeys[e.keyCode]]] = true;
+				myChip8.currentKey = myChip8.keyMap[curGameKeys[e.keyCode]];
+			}
+			
+			else{
+				console.log("down cust: unknown key");
+				myChip8.key[myChip8.keyMap[e.keyCode]] = true;
+				myChip8.currentKey = myChip8.keyMap[e.keyCode];
+			}
+		}
+		
+		else{
+			console.log("down normal");
+			myChip8.key[myChip8.keyMap[e.keyCode]] = true;
+			myChip8.currentKey = myChip8.keyMap[e.keyCode];
+		}
 	}
-	});
+});
 	
 document.addEventListener("keyup", function(e) {
-	myChip8.key[myChip8.keyMap[e.keyCode]] = false;
+	if(customKeyMap){
+		if(curGameKeys[e.keyCode] != undefined) myChip8.key[myChip8.keyMap[curGameKeys[e.keyCode]]] = false;
+		else myChip8.key[myChip8.keyMap[e.keyCode]] = false;
+	}
+	else myChip8.key[myChip8.keyMap[e.keyCode]] = false;
 	myChip8.currentKey = false;
 });
 	
@@ -692,8 +775,18 @@ var mainLoop = function(){
 		if(!error){
 			myChip8.cycle();
 			
-			if(myChip8.draw)
+			if(myChip8.draw){
+				//if(refreshScreen < 0){
+					//ctx.fillStyle = "#222222";
+					//ctx.fillRect(0,0,640,480);
+				//	refreshScreen = 60;
+				//}
+				
 				drawGraphics();
+				
+			}
+			
+			//refreshScreen--;
 			
 			myChip8.setKeys();
 		}
@@ -710,7 +803,7 @@ var drawGraphics = function(){
 	ctx.fillStyle = "#444444";
 	for(var x = 0; x < 64; x++){
 		for(var y = 0; y < 32; y++){
-			if(myChip8.gfx[x + (y * 64)] == 1){
+			if(myChip8.gfx[x + (y * 64)]){
 				//console.log("gfx: " + myChip8.gfx[(y * 64) + x]);
 				ctx.fillRect(x * 10,y * 10,10,10);
 			}
