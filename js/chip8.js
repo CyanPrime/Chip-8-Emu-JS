@@ -93,6 +93,8 @@ chip8.prototype.reset = function(){
 	this.currentKey = false;
 	
 	this.state = 0;
+	
+	this.playSound = false;
 }
 
 chip8.prototype.loadGame = function(myGame){
@@ -108,7 +110,8 @@ chip8.prototype.cycle = function(){
 	var x = (this.opcode & 0x0F00) >> 8;
 	var y = (this.opcode & 0x00F0) >> 4;
 	
-	 
+	 if(this.sound_timer > 0) this.playSound = true;
+	 else this.playSound = false;
 	// Update timers
 	if(this.delay_timer > 0) this.delay_timer--;
 	if(this.sound_timer > 0) this.sound_timer--;

@@ -5,7 +5,8 @@ if (window.File && window.FileReader && window.FileList && window.Blob) {
 	alert('The File APIs are not fully supported in this browser.');
 }
 
-var siteURL = "http://www.myside.com/";
+
+var siteURL = "http://www.mysite.com";
 var customKeyMap = false;
 var curGameKeys;
 var gameName = "unknown";
@@ -16,6 +17,18 @@ var printCall = false;
 var errorOn0 = false;
 var error = false;
 
+
+var audio = (window.AudioContext || window.webkitAudioContext || window.mozAudioContext || window.oAudioContext || window.msAudioContext);
+var audCtx;
+var oscillator;
+var gain;
+var sndMinLen = 0;
+
+if(audio){
+	audCtx = new audio();
+	gain = audCtx.createGain();
+	gain.connect(audCtx.destination);
+}
 
 function download(fileName, data) {
 	var savElement = document.createElement("a");
@@ -212,6 +225,7 @@ document.addEventListener("keyup", function(e) {
 });
 	
 var startEmu = function(){
+	
 	myChip8.reset(); //(?)
 	myChip8.loadGame(game);
 	
@@ -221,6 +235,15 @@ var startEmu = function(){
 var mainLoop = function(){
 	if(!error){
 		myChip8.cycle();
+		
+		if(myChip8.playSound){
+			playSnd(1000);
+			sndMinLen = 3;
+		}
+		else{
+			if(sndMinLen <= 0) stopSnd()
+			else sndMinLen--;
+		}
 		
 		if(myChip8.draw)
 			drawGraphics();
@@ -243,4 +266,22 @@ var drawGraphics = function(){
 	}
 	
 	this.draw = false;
+}
+
+var playSnd = function(frequency) {
+	if (audCtx && !oscillator) {
+		oscillator = audCtx.createOscillator();
+		oscillator.frequency.value = frequency || 440;
+		oscillator.type = oscillator.SQUARE;
+		oscillator.connect(gain);
+		oscillator.start(0);
+	}
+}
+
+var stopSnd = function() {
+	if (oscillator) {
+		oscillator.stop(0);
+		oscillator.disconnect(0);
+		oscillator = null;
+	}
 }
